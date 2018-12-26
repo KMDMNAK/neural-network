@@ -1,9 +1,27 @@
-class NetWork:
-    """do not include output_layer in construct"""
+class NeuralNetWork:
+    """do not include output_layer in construct \n
     
-    def __init__(self,*layers):
-        self.layers,self.OutPut_layer=[],None
+        (1) set(add) layers
+        (2) 
+    """
+    
+    def __init__(self,*layers,improvement):
+        """
+        Args
+        ____
+            layers include input and output layers \n
+            improvement is class
+        ____
+        
+        """
+        self.layers=[]
         self.add_layers(layers)
+        self.weights=[None for w in range(len(layers)-1)]
+        self.biases=[None for w in range(len(layers)-1)]
+        self.improvements=[improvement() for w in range(len(layers)-1)]
+        
+        #self.weight=np.random.randn(unit_size,input_size)*(math.sqrt(2/input_size))
+        #self.bias=np.zeros(unit_size)*0.01
         
     def add_layers(self,layers):
         """
@@ -18,11 +36,9 @@ class NetWork:
         
         for w in layers:
             self.add_layer(w)
-            
-    def add_output_layer(self,out_layer):
-        self.OutPut_layer=out_layer
         
     def set_data(self,teachers,variables,norm=False):
+        
         """if you want to use normalize date ,norm=True\n
         it doesn't normalize teacher date"""
         
@@ -34,101 +50,73 @@ class NetWork:
             self.mean=variables.mean(axis=0)
             self.std=variables.std(axis=0)
             self.variables=((self.variables-self.mean)/self.std)
-        
-    def set_layers_size(self,size_list):
-        """warning : you should excute this after seting datas and input and output"""
-        
-        for w in range(len(self.layers)):
-            self.layers[w].set_size(size_list[w+1],size_list[w])
-            
-        self.OutPut_layer.set_size(self.teachers.shape[1],size_list[-2])
     
-    def set_improvement(self,improve):
+    def set_improvement(self,improvement):
+        
         """
         improvement's class ex(ADAM,GSD)
         """
+        self.improvements=[improvement() for w in range(len(layers)-1)]
         
-        for w in self.layers:
-            w.set_improvement(improve)
+    def forward_calculate(self,index):
+        """make output of index-th layer and input of index+1-th layer"""
         
-    def train(self,epoch,batch_size,nor_loc=None,improve="adam",clear="False"):
+        self.layers[index].generate_output()
+        if(index<len(self.layers)-1):
+            self.layers[index+1].set_input(np.dot(self.weights[index],self.layers[index].output.T).T+self.bias)
+        
+    def train(self,epoch,batch_size,nor_loc=None):
+        
         start=time()
-        
-        if(improve=="adam"):
-            count=int(self.variables.shape[0]/batch_size)
-            print("count=",count)
-            for w in range(epoch):
-                for i in range(count):
-                    
-                    X=self.variables.iloc[batch_size*i:batch_size*(i+1)].as_matrix()#date_size:1
-                    Y=self.teachers.iloc[batch_size*i:batch_size*(i+1)].as_matrix()
-                    
-                    X1=X
-                    for p in range(len(self.layers)):
-                        X1=self.layers[p].cal(X1)
-                    two=self.OutPut_layer.back_propagation(Y,X1)
-                    for l in reversed(range(len(self.layers))):
-                        check=True if(nor_loc!=None and l+2 in nor_loc) else False
-                        two=self.layers[l].back_propagation(two[0],two[1],NextIsNor=check)
-                self.shuffle()
-                print("roop",w+1)
+        count=int(self.variables.shape[0]/batch_size)
+        # self.Vs[0] is always None so that this is input layer 
+        #
+        for w in range(epoch):
+            for i in range(count):
+                self.layers[0].set_input(
+                    self.variables.iloc[batch_size*i:batch_size*(i+1)].as_matrix()
+                )
+                for p in range(len(self.layers)):
+                    forward_calculate(p)
+                self.back_propagation(self.teachers.iloc[batch_size*i:batch_size*(i+1)].as_matrix())
+            self.shuffle()
+            print("roop",w+1)
                 
         print("time to finish learning=",time()-start)
-
+        
+    def back_propagation(self,teachers):
+        if(self.layers[-1].check_input):
+            raise Error("ungenerated output_layers's output")
+        
+        delta=self.layers[-1].output-teachers
+        for w in reversed(range(len(self.weights))):
+            E=self.back(w,delta)
+            self.weights[w]=self.improvements[w].update(self.weights[w],E)
+            if(w!=0):
+                delta=self.back_delta(w-1,delta)
+        
+    def back_E(self,index,delta_next):
+        """
+        delta_next :(layer_size:batch_size)
+        """
+        E=0
+        output=self.layers[index].output
+        for w in range(output.shape[0]):
+            E+=numpy.tensordot(delta_next[w],output,0)
+        E/=output.shape[0]
+        return E
+    
+    def back_delta(self,index,next_delta):
+        delta=self.layers[index].dactivater(self.layers[index].output)*np.dot(delta_next,self.weights[index])
+        return delta
+        
     def shuffle(self):
+        
         next_index=self.teachers.index.tolist()
         np.random.shuffle(next_index)
-        self.variables.index=next_index
-        self.teachers.index=next_index
-        self.variables=self.variables.sort_index()
-        self.teachers=self.teachers.sort_index()
-
-    def check(self,teachers_test,variables_test,batch_size=1):
-        error=np.zeros(len(variables_test))
-        count=int(variables_test.shape[0]/batch_size)
-        for i in range(count):
+        self.variables.index,self.teachers.index=next_index,next_index
+        self.variables,self.teachers=self.variables.sort_index(),self.teachers.sort_index()
             
-            X=variables_test.iloc[batch_size*i:batch_size*(i+1)]#date_size:1
-            Y=teachers_test.iloc[batch_size*i:batch_size*(i+1)].as_matrix()
-            if(self.norm):
-                X=(((X-self.mean)/self.std)).as_matrix()
-            else:
-                X=X.as_matrix()
-            for p in range(len(self.Layers)):
-                X=self.Layers[p].cal(X)
-            X=self.OutPut_layer.cal(X)
-            e=(np.abs((X-Y)/Y)*100)
-            error[i]=float(e.mean(axis=1).mean(axis=0))
-        print("error.shape=",len(error))
-        under=np.where(error<100)[0]
-        print("rate of error below 100%=",100*len(under)/len(error),"%")
-        print("error average percent=",error.mean(),"%")
-        print("error average percent under 100%=",error[under].mean(),"%")
-        plt.hist(error,bins=100,range=(0,100))
-        plt.show()
-
-    def check_number(self,teachers_test,variables_test,show_num):
-        error=np.zeros(show_num)
-        for i in range(show_num):
-            X=variables_test.iloc[i]
-            Y=teachers_test.iloc[i]
-            
-            if(self.norm):
-                X=((X.T-self.mean)/self.std).T
-            
-            for l in range(len(self.Layers)):
-                X=self.Layers[l].cal(X)
-            X=self.OutPut_layer.cal(X)
-            e=(np.abs((X-Y)/Y)*100)
-            error[i]=float(e.mean(axis=0))
-            
-            print("OutPut=",X.tolist())
-            print("Teacher=",Y.tolist(),"\n")
-        print("error.shape=",len(error))
-        under=np.where(error<100)[0]
-        print("rate of error below 100%=",100*len(under)/len(error),"%")
-        print("error average percent=",error.mean(),"%")
-        print("error average percent under 100%=",error[under].mean(),"%")
-        
-    def check_class(self,teachers_test,variables_test,show_num):
-        pass
+class Error(Exception):
+    def __init__(self,message):
+        print(message)

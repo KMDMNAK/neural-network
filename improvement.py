@@ -6,7 +6,10 @@ class improve_method:
     
     def improve(self,weight,E):
         pass
-
+    
+    def clear(self):
+        self.__init__()
+        
 class ADAM(improve_method):
     epsilon,alpha=10**(-8),0.001
     beta_1,beta_2=0.9,0.999
@@ -28,6 +31,7 @@ class ADAM(improve_method):
         weight-=alpha*m_/(np.sqrt(v_)+epsilon)
         
         return weight
+    
     
 class GSD(improve_method):
     def __init__(self,rate):
