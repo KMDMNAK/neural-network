@@ -130,7 +130,7 @@ class NeuralNetWork:
         E=0
         outputs=self.layers[index].output
         for output in outputs:
-            for w in range(output.shape[0]):
+            for w in range(outputs.shape[0]):
                 E+=np.tensordot(delta_next[w],output,0)
         E/=output.shape[0]
         return E
