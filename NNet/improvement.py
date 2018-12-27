@@ -24,11 +24,11 @@ class ADAM(improve_method):
             self.m,self.v=np.zeros(E.shape),np.zeros(E.shape)
         
         for i in range(E.shape[0]):
-            self.m[i]=beta_1*self.m[i]+(1-beta_1)*E[i]
-            self.v[i]=beta_2*self.v[i]+(1-beta_2)*(E[i]**2)
+            self.m[i]=self.beta_1*self.m[i]+(1-self.beta_1)*E[i]
+            self.v[i]=self.beta_2*self.v[i]+(1-self.beta_2)*(E[i]**2)
         
-        m_,v_=m/(1-beta_1**self.times),v/(1-beta_2**self.times)
-        weight-=alpha*m_/(np.sqrt(v_)+epsilon)
+        m_,v_=self.m/(1-self.beta_1**self.time),self.v/(1-self.beta_2**self.time)
+        weight-=self.alpha*m_/(np.sqrt(v_)+self.epsilon)
         
         return weight
     
